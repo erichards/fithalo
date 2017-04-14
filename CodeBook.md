@@ -45,7 +45,8 @@ Galaxy Name
 disk magnitude bulge magnitude  
 D (Mpc)  
 R_(V_HI) (kpc)  
-h_R (arcsec) D_25 (arcsec)  
+h_R (arcsec) D_25 (arcsec)
+
 RAD | VROT | V_ERR | V_GAS | V_DISK | V_BULGE
 --- | ---- | ----- | ----- | ------ | -------
 0.00 | 0.00 | 0.00 | 0.000000 | 0.000000 | 0.000000
