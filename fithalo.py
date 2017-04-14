@@ -1,5 +1,5 @@
 ''' 
-fithalo.py v1.0
+fithalo.py v.1.0
 ER 4/14/2017
 
 This script takes observed and model baryon component circular rotational 
