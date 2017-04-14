@@ -41,12 +41,11 @@ with the plot.
 
 fithalo.py expects an input text file with the following data and format:
 
-Galaxy Name\s\s
-disk magnitude bulge magnitude\s\s
-D (Mpc)\s\s
-R_(V_HI) (kpc)\s\s
-h_R (arcsec) D_25 (arcsec)
-
+Galaxy Name  
+disk magnitude bulge magnitude  
+D (Mpc)  
+R_(V_HI) (kpc)  
+h_R (arcsec) D_25 (arcsec)  
 RAD | VROT | V_ERR | V_GAS | V_DISK | V_BULGE
 --- | ---- | ----- | ----- | ------ | -------
 0.00 | 0.00 | 0.00 | 0.000000 | 0.000000 | 0.000000
@@ -137,6 +136,7 @@ Plot options | (see Interacting with the Plot)
  right-mouse-click | adjust halo fit parameters $R_{\rm C}$ & $V_{\rm H}$
  e |                toggle +/- 0.1 M/L error bands on/off
  h |                re-fit halo using current M/L
+
 Command line options | (see Fitting Details and Output)
 -------------------- | --------------------------------
  f |                provide fixed M/L and re-fit halo
