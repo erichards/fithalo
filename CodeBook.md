@@ -1,5 +1,5 @@
-# Code Book for fithalo.py v.1.0
-4/14/2017
+# Code Book for fithalo.py v.1.1
+4/17/2017
 
 The distribution of mass in galaxies can be constrained through decomposition
 of the observed rotation curve, which traces the total gravitational potential
@@ -135,8 +135,15 @@ Plot options | (see Interacting with the Plot)
  middle-mouse-click | adjust bulge M/L
  shift+left-mouse-click | also adjust bulge M/L
  right-mouse-click | adjust halo fit parameters $R_{\rm C}$ & $V_{\rm H}$
- e |                toggle +/- 0.1 M/L error bands on/off
- h |                re-fit halo using current M/L
+ e | toggle +/- 0.1 M/L error bands on/off
+ h | re-fit halo using current M/L
+ m | mouse-click scaling enabled (default, interactive mode)
+ n | no mouse-click scaling (activate label mode)
+ c | center selected label
+ d | shift selected label down
+ l | shift selected label to the left
+ r | shift selected label to the right
+ u | shift selected label up
 
 Command line options | (see Fitting Details and Output)
 -------------------- | --------------------------------
@@ -147,6 +154,13 @@ Command line options | (see Fitting Details and Output)
  q |                quit
 
 ### Interacting with the Plot
+
+The user may interact with the plot in two modes: interactive and label. The
+default interactive mode is used for manipulation of the data and fit, whereas
+label mode is used for the finishing touches to create a publication-quality
+plot. 
+
+#### Interactive Mode
 
 The user has the option of using the mouse while the plot window is activated
 to manually alter the free parameters in the fit:
@@ -177,6 +191,20 @@ respectively. A known issue with the toggle feature on some systems is having
 to click on the plot before the toggle off is registered. Therefore, it is
 recommended that the errorbands are only toggled on once the fit and plot are
 finalized.
+
+#### Label Mode
+
+Label mode functionality was created to quickly and easily shift the component
+rotation curve and radii labels to prevent crowded or overlapping text.
+Pressing the 'n' key disconnects the mouse-click events so that the user may
+interact with the text labels without triggering scaling of the disk, bulge,
+or halo model rotation curves. To move a text label position, simply click on
+it then use the arrow keys to shift it up, down, right, or left. Alternatively,
+the 'u', 'd', 'r', and 'l' keys may be used to shift the text up, down, right,
+or left, respectively. Please note that the text is shifted by changing its
+vertical and horizontal alignment only, so it cannot be shifted by an
+arbitrary amount. Press 'm' to return to the interactive mode and re-enable
+mouse-click scaling.
 
 ### Fitting Details
 
@@ -218,7 +246,7 @@ rotational velocities to compute a total baryon contribution to the observed
 rotation curve. The baryon contribution is then subtracted (in quadrature)
 from the total observed circular rotational velocities to create a residual
 rotation curve, which is then fit with the dark matter halo model from the
-equation above described by the free parameters V_H and R_C.
+function above described by the free parameters V_H and R_C.
 The `curve_fit` function is once again used for the non-linear least-squares
 fitting with bounds, and is weighted by the observed uncertainties.
 
@@ -238,9 +266,8 @@ To exit the program, type 'q' at the command prompt.
 There are a number of developments that would greatly improve the flexibility
 and functionality of this program, most notably of which is less stringent
 constraints on the input file format. Short-term goals include allowing the
-user to choose whether or not to use error weighting in the fits and creating
-handles for plot labels, enabling the user to interact with them so they do
-not overlap. Long-term goal is to overhaul the UI so that much of the metadata
+user to choose whether or not to use error weighting in the fits.
+Long-term goal is to overhaul the UI so that much of the metadata
 and user options can be specified through input options, allowing the program
 to be run interactively and as a non-interactive script for batch mode
 processing. It would also be nice to remove the assumed mass scaling for the

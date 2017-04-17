@@ -1,6 +1,6 @@
 ''' 
-fithalo.py v.1.0
-ER 4/14/2017
+fithalo.py v.1.1
+ER 4/17/2017
 
 This script takes observed and model baryon component circular rotational 
 velocities as a function of radius (rotation curves) for an individual 
@@ -27,6 +27,7 @@ import numpy as np
 from scipy.optimize import curve_fit
 import matplotlib
 import matplotlib.pyplot as plt
+from matplotlib.text import Text
 from matplotlib.ticker import AutoMinorLocator
 from matplotlib import rcParams
 plt.rc('font', family='serif')
@@ -35,6 +36,10 @@ rcParams['xtick.labelsize'] = 38
 rcParams['ytick.labelsize'] = 38
 rcParams['legend.fontsize'] = 32
 rcParams['axes.titlesize'] = 42
+# disable some annoying default keymaps
+rcParams['keymap.yscale'] = ''
+rcParams['keymap.fullscreen'] = ''
+rcParams['keymap.back'] = ''
 
 #=============================================================================#
 
@@ -224,6 +229,10 @@ class InteractivePlot:
                 self.barlab = txt[6]
                 self.hlab = txt[7]
                 self.tlab = txt[8]
+                self.glab = txt[9]
+                self.Rbtxt = txt[10]
+                self.Rhtxt = txt[11]
+                self.R25txt = txt[12]
                 self.disk = rc[0]
                 self.bulge = rc[1]
                 self.bary = rc[2]
@@ -243,18 +252,22 @@ class InteractivePlot:
                 self.toggle_on = False
                 self.shift_is_held = False
                 self.last = len(df.RAD) - 1
-                self.xlab = df.RAD.max() * 1.05
+                self.xlab = df.RAD.max() * 1.08
+                self.picked = None
 
         def connect(self):
                 self.cidclick = self.fig.canvas.mpl_connect(
                         'button_press_event', self.on_click)
+                self.cidpick = self.fig.canvas.mpl_connect(
+                        'pick_event', self.on_pick)
                 self.cidkey = self.fig.canvas.mpl_connect(
                         'key_press_event', self.on_press)
                 self.cidkey_release = self.fig.canvas.mpl_connect(
-                        'key_release_event', self.on_release)
+                        'key_release_event', self.on_key_release)
                 
         def disconnect(self):
                 self.fig.canvas.mpl_disconnect(self.cidclick)
+                self.fig.canvas.mpl_disconnect(self.cidpick)
                 self.fig.canvas.mpl_disconnect(self.cidkey)
                 self.fig.canvas.mpl_disconnect(self.cidkey_release)
 
@@ -264,7 +277,8 @@ class InteractivePlot:
                 self.bary.set_data(self.r, self.Vbary)
                 self.barlab.remove()
                 self.barlab = plt.text(self.xlab, self.Vbary[self.last],
-                                       'Bary', fontsize=38, va='center')
+                                       'Bary', fontsize=38, ha='center',
+                                       va='center', picker=True)
                 self.bary.figure.canvas.draw()
 
         def change_total(self):
@@ -272,7 +286,8 @@ class InteractivePlot:
                 self.total.set_data(self.r, self.Vtotal)
                 self.tlab.remove()
                 self.tlab = plt.text(self.xlab, self.Vtotal[self.last],
-                                     'Total', fontsize=38, va='center')
+                                     'Total', fontsize=38, ha='center',
+                                     va='center', picker=True)
                 self.total.figure.canvas.draw()
 
         def change_disk(self):
@@ -281,7 +296,8 @@ class InteractivePlot:
                 self.dMLtxt = plt.figtext(
                         0.4, 0.85, 'disk M/L = %.1f' % self.dML, fontsize=38)
                 self.dlab = plt.text(self.xlab, self.Vdisk[self.last],
-                                     'Disk', fontsize=38, va='center')
+                                     'Disk', fontsize=38, ha='center',
+                                     va='center', picker=True)
                 self.fig.canvas.draw()
 
         def change_bulge(self):
@@ -296,7 +312,8 @@ class InteractivePlot:
                                 0.4, 0.8, 'bulge M/L = %.1f' % self.bML,
                                 fontsize=38)
                 self.blab = plt.text(self.xlab, self.Vbulge[self.last],
-                                     'Bulge', fontsize=38, va='center')
+                                     'Bulge', fontsize=38, ha='center',
+                                     va='center', picker=True)
                 self.fig.canvas.draw()
 
         def change_halo(self):
@@ -312,7 +329,8 @@ class InteractivePlot:
                         0.65, 0.8, 'V$_\mathrm{H}$ = %0.f km s$^{-1}$'
                         % self.V_H, fontsize=38)
                 self.hlab = plt.text(self.xlab, self.Vhalo[self.last],
-                                     'Halo', fontsize=38, va='center')
+                                     'Halo', fontsize=38, ha='center',
+                                     va='center', picker=True)
                 self.fig.canvas.draw()
 
         def change_halo_fit(self):
@@ -330,7 +348,8 @@ class InteractivePlot:
                         'V$_\mathrm{H}$ = %0.f $\pm$ %0.f km s$^{-1}$'
                         % (self.V_H, self.V_H_err), fontsize=38)
                 self.hlab = plt.text(self.xlab, self.Vhalo[self.last],
-                                     'Halo', fontsize=38, va='center')
+                                     'Halo', fontsize=38, ha='center',
+                                     va='center', picker=True)
                 self.fig.canvas.draw()
 
         def fit_halo(self):
@@ -445,9 +464,52 @@ class InteractivePlot:
                         self.remove_halo_text()
                         self.fit_halo()
                         self.change_total()
+                elif event.key == 'n':
+                        self.fig.canvas.mpl_disconnect(self.cidclick)
+                        print 'Now entering label mode. Mouse-click scaling disabled.'
+                elif event.key == 'm':
+                        self.cidclick = self.fig.canvas.mpl_connect(
+                                'button_press_event', self.on_click)
+                        print 'Returning to interactive mode. Mouse-click scaling enabled.'
+                elif event.key == 'u' or event.key == 'up':
+                        if self.picked is not None:
+                                self.picked.set_va('bottom')
+                                self.fig.canvas.draw()
+                        else:
+                                return
+                elif event.key == 'd' or event.key == 'down':
+                        if self.picked is not None:
+                                self.picked.set_va('top')
+                                self.fig.canvas.draw()
+                        else:
+                                return
+                elif event.key == 'c':
+                        if self.picked is not None:
+                                self.picked.set_va('center')
+                                self.picked.set_ha('center')
+                                self.fig.canvas.draw()
+                        else:
+                                return
+                elif event.key == 'r' or event.key == 'right':
+                        if self.picked is not None:
+                                self.picked.set_ha('left')
+                                self.fig.canvas.draw()
+                        else:
+                                return
+                elif event.key == 'l' or event.key == 'left':
+                        if self.picked is not None:
+                                self.picked.set_ha('right')
+                                self.fig.canvas.draw()
+                        else:
+                                return
                 else: return
 
-        def on_release(self, event):
+        def on_pick(self, event):
+                if isinstance(event.artist, Text):
+                        self.picked = event.artist
+                        print '%s label selected' % self.picked.get_text()
+
+        def on_key_release(self, event):
                 if event.key == 'shift':
                         self.shift_is_held = False
 
@@ -498,7 +560,7 @@ class InteractivePlot:
                         self.remove_halo_text()
                         self.change_halo()
                         self.change_total()
-
+                        
 ##### THE PLOTTING FUNCTION #####
 def draw_plot(meta, df, popt, perr, ML):
         gal, dMpc, VHIrad, h_R, D25 = meta
@@ -508,7 +570,7 @@ def draw_plot(meta, df, popt, perr, ML):
         Rdyn = 2.2 * ((h_R / 206.265) * dMpc)
         R25 = ((D25 / 2.) / 206.265) * dMpc
                 
-        fig = plt.figure(figsize=(25,15), dpi=60)
+        fig = plt.figure(figsize=(25,15), dpi=30)
         ax1 = fig.add_subplot(111)
         ax1.xaxis.set_minor_locator(AutoMinorLocator(5))
         ax1.yaxis.set_minor_locator(AutoMinorLocator(5))
@@ -537,22 +599,31 @@ def draw_plot(meta, df, popt, perr, ML):
                 0.65, 0.8, 'V$_\mathrm{H}$ = %0.f $\pm$ %0.f km s$^{-1}$'
                 % (popt[0], perr[0]), fontsize=38)
         last = len(df.RAD) - 1
-        xlab = df.RAD.max() * 1.05
+        xlab = df.RAD.max() * 1.08
         # mark radii
-        arrow_height = (df.VROT.max() * 1.4) * 0.08
-        plt.annotate('R$_\mathrm{bary}$', xy=(Rbary, 0.), xycoords='data',
-                     xytext=(Rbary, arrow_height), textcoords='data', 
-                     arrowprops=dict(arrowstyle='simple', fc='k'), 
-                     fontsize=38, ha='center')
-        plt.annotate('2.2h$_\mathrm{R}$', xy=(Rdyn, 0.), xycoords='data',
-                     xytext=(Rdyn, arrow_height), textcoords='data',
-                     arrowprops=dict(arrowstyle='simple', fc='k'),
-                     fontsize=38, ha='center')
+        arrow_height = (df.VROT.max() * 1.4) * 0.095
+        Rbtxt = plt.annotate('R$_\mathrm{bary}$', xy=(Rbary, 0.),
+                             xycoords='data', xytext=(Rbary, arrow_height),
+                             textcoords='data', arrowprops=dict(
+                                     arrowstyle='simple', fc='k'),
+                             fontsize=38, ha='center', va='center',
+                             picker=True)
+        Rhtxt = plt.annotate('2.2h$_\mathrm{R}$', xy=(Rdyn, 0.),
+                             xycoords='data', xytext=(Rdyn, arrow_height),
+                             textcoords='data', arrowprops=dict(
+                                     arrowstyle='simple', fc='k'),
+                             fontsize=38, ha='center', va='center',
+                             picker=True)
         if R25 < df.RAD.max() * 1.15:
-                plt.annotate('R$_{25}$', xy=(R25, 0.), xycoords='data',
-                             xytext=(R25, arrow_height), textcoords='data',
-                             arrowprops=dict(arrowstyle='simple', fc='k'),
-                             fontsize=38, ha='center')
+                R25txt = plt.annotate('R$_{25}$', xy=(R25, 0.),
+                                      xycoords='data', xytext=(
+                                              R25, arrow_height),
+                                      textcoords='data', arrowprops=dict(
+                                              arrowstyle='simple', fc='k'),
+                                      fontsize=38, ha='center', va='center',
+                                      picker=True)
+        else:
+                R25txt = plt.annotate('', xy=(0, 0))
         # observed RC
         first_HI = np.where(df.RAD == VHIrad)[0]
         for i in range(0, first_HI):
@@ -564,7 +635,8 @@ def draw_plot(meta, df, popt, perr, ML):
                      color='k', lw=5, ls='None')
         # model gas RC
         plt.plot(df.RAD, df.V_gas, 'g-', ls='--', lw=5, dashes=(20, 20))
-        plt.text(xlab, df.V_gas[last], 'Gas', fontsize=38, va='center')
+        gaslab = plt.text(xlab, df.V_gas[last], 'Gas',
+                          fontsize=38, ha='center', va='center', picker=True)
         # model stellar disk & bulge RC
         if all(df.V_bulge == 0.):
                 dMLtxt = plt.figtext(
@@ -572,7 +644,8 @@ def draw_plot(meta, df, popt, perr, ML):
                 diskRC = plt.plot(df.RAD, df.V_disk, 'm-', ls=':',
                                   lw=5, dashes=(5, 15))
                 disklab = plt.text(xlab, df.V_disk[last], 'Disk',
-                                   fontsize=38, va='center')
+                                   fontsize=38, ha='center', va='center',
+                                   picker=True)
                 bulgeRC = plt.plot(df.RAD, df.V_bulge, '', ls='')
                 bulgelab = plt.text(0., 0., '')
                 bMLtxt = plt.figtext(0., 0., '')
@@ -582,7 +655,8 @@ def draw_plot(meta, df, popt, perr, ML):
                 bulgeRC = plt.plot(df.RAD, df.V_bulge, 'c-', ls='-.',
                                    lw=5, dashes=[20, 20, 5, 20])
                 bulgelab = plt.text(xlab, df.V_bulge[last], 'Bulge',
-                                    fontsize=38, va='center')
+                                    fontsize=38, ha='center', va='center',
+                                    picker=True)
                 diskRC = plt.plot(df.RAD, df.V_disk, '', ls='')
                 disklab = plt.text(0., 0., '')
                 dMLtxt = plt.figtext(0., 0., '')
@@ -592,31 +666,34 @@ def draw_plot(meta, df, popt, perr, ML):
                 diskRC = plt.plot(df.RAD, df.V_disk, 'm-', ls=':',
                                   lw=5, dashes=(5, 15))
                 disklab = plt.text(xlab, df.V_disk[last], 'Disk',
-                                   fontsize=38, va='center')
+                                   fontsize=38, ha='center', va='center',
+                                   picker=True)
                 bMLtxt = plt.figtext(0.4, 0.8, 'bulge M/L = %.1f'
                                              % ML[1], fontsize=38)
                 bulgeRC = plt.plot(df.RAD, df.V_bulge, 'c-', ls='-.',
                                    lw=5, dashes=[20, 20, 5, 20])
                 bulgelab = plt.text(xlab, df.V_bulge[last], 'Bulge',
-                                    fontsize=38, va='center')
+                                    fontsize=38, ha='center', va='center',
+                                    picker=True)
         # model total baryon RC
         baryRC = plt.plot(df.RAD, df.V_bary, 'b-', ls='--', lw=5,
                           dashes=[20, 10, 20, 10, 5, 10])
         barylab = plt.text(xlab, df.V_bary[last], 'Bary',
-                           fontsize=38, va='center')
+                           fontsize=38, ha='center', va='center', picker=True)
         # model DM halo RC
         xfine = np.linspace(df.RAD.min(), df.RAD.max())
         haloRC = plt.plot(xfine, halo(xfine, popt[0], popt[1]), 'r-', lw=5)
         halolab = plt.text(xlab, df.V_halo[last], 'Halo',
-                           fontsize=38, va='center')
+                           fontsize=38, ha='center', va='center', picker=True)
         # best fitting total
         totRC = plt.plot(df.RAD, df.V_tot, 'k-', ls='-', lw=5)
         totlab = plt.text(xlab, df.V_tot[last], 'Total',
-                          fontsize=38, va='center')
+                          fontsize=38, ha='center', va='center', picker=True)
 
         rcs = (diskRC[0], bulgeRC[0], baryRC[0], haloRC[0], totRC[0])
-        txt = (dMLtxt, bMLtxt, VHtxt, RCtxt,
-               disklab, bulgelab, barylab, halolab, totlab)
+        txt = (dMLtxt, bMLtxt, VHtxt, RCtxt, disklab,
+               bulgelab, barylab, halolab, totlab, gaslab,
+               Rbtxt, Rhtxt, R25txt)
 
         return fig, txt, rcs
 
@@ -676,16 +753,25 @@ def main():
 
         plt.show(block = False)
 
-        print '\n ==========================================\n'
-        print ' Welcome! Please select an option for %s from the menu:\n'% (
+        #print '\n ==========================================\n'
+        print ' \nWelcome! Please select an option for %s from the menu:\n' % (
                 galaxyName)
         print ' Plot options (use when plot window is active):'
         print ' -----------------------------'
         print '  left-mouse-click:    adjust disk M/L'
-        print '  middle-mouse-click*: adjust bulge M/L'
+        print '  middle-mouse-click:  adjust bulge M/L*'
         print '  right-mouse-click:   adjust halo fit parameters R_C & V_H'
         print '  e:                   toggle +/- 0.1 M/L error bands on/off'
-        print '  h:                   re-fit halo using current M/L\n'
+        print '  h:                   re-fit halo using current M/L'
+        print '  m:                   mouse-click scaling enabled'
+        print '                       (default, interactive mode)'
+        print '  n:                   no mouse-click scaling'
+        print '                       (label mode activated)'
+        print '  c:                   center selected label**'
+        print '  d or down arrow:     shift selected label down**'
+        print '  l or left arrow:     shift selected label to the left**'
+        print '  r or right arrow:    shift selected label to the right**'
+        print '  u or up arrow:       shift selected label up**\n'
         print ' Command line options'
         print ' -----------------------------'
         print ' Fit options:'
@@ -697,7 +783,9 @@ def main():
         print '  s:                   write rotation curves and fit' 
         print '                       parameters to text file'
         print '  q:                   quit\n'
-        print ' *Alternative to middle-mouse-click: shift + left-mouse-click\n'
+        print ' *Middle-mouse-click alternative: "shift + left-mouse-click"\n'
+        print ' **Select label text by clicking on it. Be sure to enter'
+        print '   label mode first by pressing "n".\n'
         print ' NOTE: You may have to click on the figure after pressing' 
         print '       "e" to toggle off the error bands. This is a known'
         print '       issue for some operating systems (Linux).\n'
@@ -709,7 +797,7 @@ def main():
         print ' V_H =                 %0.f +/- %0.f km/s' % (popt[0], perr[0])
         print ' R_C =                 %.2f +/- %.2f kpc' % (popt[1], perr[1])
         print ' chi squared =         %.3f' % chi_sq
-        print ' reduced chi squared = %.3f' % red_chi_sq
+        print ' reduced chi squared = %.3f\n' % red_chi_sq
 
         choice = raw_input()
 
@@ -736,7 +824,7 @@ def main():
                         print ' V_H =                 %0.f +/- %0.f km/s' % (popt[0], perr[0])
                         print ' R_C =                 %.2f +/- %.2f kpc' % (popt[1], perr[1])
                         print ' chi squared =         %.3f' % chi_sq
-                        print ' reduced chi squared = %.3f' % red_chi_sq
+                        print ' reduced chi squared = %.3f\n' % red_chi_sq
                         rcdf['V_bary'] = np.sqrt(
                                 (rcdf.V_gas**2.) + (rcdf.V_disk**2.)
                                 + (rcdf.V_bulge**2.))
@@ -764,7 +852,7 @@ def main():
                         print ' V_H =                 %0.f +/- %0.f km/s' % (popt[0], perr[0])
                         print ' R_C =                 %.2f +/- %.2f kpc' % (popt[1], perr[1])
                         print ' chi squared =         %.3f' % chi_sq
-                        print ' reduced chi squared = %.3f' % red_chi_sq
+                        print ' reduced chi squared = %.3f\n' % red_chi_sq
                         rcdf['V_disk'] = rcdf.VdiskML1 * np.sqrt(ML[0])
                         rcdf['V_bulge'] = rcdf.VbulgeML1 * np.sqrt(ML[1])
                         rcdf['V_bary'] = np.sqrt(
