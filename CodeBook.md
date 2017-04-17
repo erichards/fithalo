@@ -140,10 +140,10 @@ Plot options | (see Interacting with the Plot)
  m | mouse-click scaling enabled (default, interactive mode)
  n | no mouse-click scaling (activate label mode)
  c | center selected label
- d | shift selected label down
- l | shift selected label to the left
- r | shift selected label to the right
- u | shift selected label up
+ d or down arrow | shift selected label down
+ l or left arrow | shift selected label to the left
+ r or right arrow | shift selected label to the right
+ u or up arrow | shift selected label up
 
 Command line options | (see Fitting Details and Output)
 -------------------- | --------------------------------
@@ -201,10 +201,10 @@ interact with the text labels without triggering scaling of the disk, bulge,
 or halo model rotation curves. To move a text label position, simply click on
 it then use the arrow keys to shift it up, down, right, or left. Alternatively,
 the 'u', 'd', 'r', and 'l' keys may be used to shift the text up, down, right,
-or left, respectively. Please note that the text is shifted by changing its
-vertical and horizontal alignment only, so it cannot be shifted by an
-arbitrary amount. Press 'm' to return to the interactive mode and re-enable
-mouse-click scaling.
+or left, respectively. To re-center the text, press 'c'. Please note that the
+text is shifted by changing its vertical and horizontal alignment only, so it
+cannot be shifted by an arbitrary amount. Press 'm' to return to the
+interactive mode and re-enable mouse-click scaling.
 
 ### Fitting Details
 
