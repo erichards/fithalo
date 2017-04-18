@@ -1,23 +1,28 @@
-''' 
+'''
 fithalo.py v.1.1
 ER 4/17/2017
+________________________________________________________________________
 
-This script takes observed and model baryon component circular rotational 
-velocities as a function of radius (rotation curves) for an individual 
-galaxy as input and fits a pseudo-isothermal spherical dark matter halo 
-model rotation curve to the residuals between the observed and summed baryon
-model components using non-linear least-squares fitting. Mass-to-light 
-ratio (M/L) scalings* of the model stellar components (disk and/or bulge) are 
-also derived initially through non-linear least-squares fitting along with 
-the dark matter halo component. These fitting results are displayed to the 
-user upon which he or she is given the option of manually specifying the 
-disk and/or bulge M/L. There is an additional option for the user to define 
-the M/L(s) and the dark matter halo model completely through interaction 
+This script takes observed and model baryon component circular
+rotational velocities as a function of radius (rotation curves) for an
+individual galaxy as input and fits a pseudo-isothermal spherical dark
+matter halo model rotation curve to the residuals between the observed
+and summed baryon model components using non-linear least-squares
+fitting. Mass-to-light ratio (M/L) scalings* of the model stellar
+components (disk and/or bulge) are also derived initially through
+non-linear least-squares fitting along with the dark matter halo
+component. These fitting results are displayed to the user upon which
+he or she is given the option of manually specifying the disk and/or
+bulge M/L. There is an additional option for the user to define the
+M/L(s) and the dark matter halo model completely through interaction
 with the plot.
 
-* It is assumed that the provided model stellar component rotation curves
-have been normalized to masses of 10^9 Msun and M/L = 1.
+* It is assumed that the provided model stellar component rotation
+curves have been normalized to masses of 10^9 Msun and M/L = 1.
 '''
+
+# =========================================================================== #
+
 
 import sys
 import os
@@ -41,14 +46,15 @@ rcParams['keymap.yscale'] = ''
 rcParams['keymap.fullscreen'] = ''
 rcParams['keymap.back'] = ''
 
-#=============================================================================#
 
-absmag_sun = 3.24 # at 3.6 microns, used in luminosity calculations
+absmag_sun = 3.24  # at 3.6 microns, used in luminosity calculations
+
 
 # functional form for the model RC for a pseudo-isothermal spherical DM halo
 def halo(r, *p):
         V_H, R_C = p
-	return V_H*np.sqrt(1-((R_C/r)*(np.arctan(r/R_C))))
+        return V_H * np.sqrt(1 - ((R_C / r) * (np.arctan(r / R_C))))
+
 
 # function used when fitting for halo & M/L
 def total(X, *p):
@@ -57,22 +63,27 @@ def total(X, *p):
         return np.sqrt((halo(r, V_H, R_C)**2.) + (vgas**2.)
                        + (dML * (vdisk**2.)) + (bML * (vbulge**2.)))
 
-''' The following two functions make use of curve_fit from the scipy 
-optimize package which uses non-linear least-squares methods to fit a 
-specified function to data. For bound problems it uses the trf 
+
+''' The following two functions make use of curve_fit from the scipy
+optimize package which uses non-linear least-squares methods to fit a
+specified function to data. For bound problems it uses the trf
 (Trust Region Reflective) algorithm for optimization. It defaults to
-Levenberg-Marquardt for unconstrained problems. In this case, bounds are 
-necessary to prevent NaNs in the sqrt. '''
-##### FITTING FUNCTION FOR FIXED M/L #####
+Levenberg-Marquardt for unconstrained problems. In this case, bounds
+are necessary to prevent NaNs in the sqrt. '''
+
+
+# FITTING FUNCTION FOR FIXED M/L
 def fithalo_lsq(x, y, yerr, p_init=[150, 7]):
-        # doesn't work (OptimizeWarning) without limits: 0 < V_h,R_c < 1000
-        popt, pcov = curve_fit(halo, x, y, p_init, sigma=yerr, bounds=(0,1000))
+        # doesn't work (OptimizeWarning) without limits: 0 < V_h, R_c < 1000
+        popt, pcov = curve_fit(halo, x, y, p_init, sigma=yerr,
+                               bounds=(0, 1000))
         perr = np.sqrt(np.diag(pcov))
         chi_sq = np.sum(((halo(x, *popt) - y) / yerr)**2.)
         red_chi_sq = chi_sq / (len(x) - len(popt))
         return popt, perr, chi_sq, red_chi_sq
 
-##### FITS FOR M/L & HALO SIMULTANEOUSLY #####
+
+# FITS FOR M/L & HALO SIMULTANEOUSLY
 # imposes constraint 0.3 <= M/L <= 0.8
 def fithaloML(X, y, yerr, p_init=[150, 7, 0.5, 0.5]):
         r, vgas, vdisk, vbulge = X
@@ -86,19 +97,12 @@ def fithaloML(X, y, yerr, p_init=[150, 7, 0.5, 0.5]):
         red_chi_sq = chi_sq / (len(y) - len(popt))
         return popt, perr, chi_sq, red_chi_sq
 
-##### FEEDS USER SPECIFIED M/L TO fithalo_lsq #####
-# currently set to weight all velocities equally (ignores error)
+
+# FEEDS USER SPECIFIED M/L TO fithalo_lsq
 def fixedML(r, V):
         # stellar V(s) already scaled by M/L
         vbary = np.sqrt((V[2]**2.) + (V[3]**2.) + (V[4]**2.))
-
-        '''The rotational velocities (mass) attributed to the 
-        DM halo are the residual velocities (mass) needed such 
-        that the sum in quadrature of the baryon rotational 
-        velocities (mass) and the DM halo velocities (mass) 
-        equal the observed rotational velocities (mass).'''
-
-        vfit = np.sqrt((V[0]**2.) - (vbary**2.)).dropna()[1:] # skip r=0
+        vfit = np.sqrt((V[0]**2.) - (vbary**2.)).dropna()[1:]  # skip r=0
         if len(vfit) > 2:
                 pass
         else:
@@ -106,19 +110,19 @@ def fixedML(r, V):
                 print 'Decrease M/L(s) and try again.'
                 return None, None, None, None
         rfit = r.reindex(vfit.index)
-        vfit_err = ((V[0] * V[1]) /
-                    np.sqrt((V[0]**2.) - (vbary**2.))).reindex(vfit.index)
-        #vfit_err = np.ones(len(vfit)) # uncomment to NOT weigh fit by errors
+        vfit_err = ((V[0] * V[1]) / np.sqrt((V[0]**2.) -
+                                            (vbary**2.))).reindex(vfit.index)
+        # vfit_err = np.ones(len(vfit))  # uncomment to NOT weigh fit by errors
         popt, perr, chi_sq, red_chi_sq = fithalo_lsq(rfit, vfit, vfit_err)
-        return popt, perr, chi_sq, red_chi_sq        
-        
-##### M/L AS FREE PARAMETER, FEEDS TO fithaloML #####
-# currently set to weight velocities by their errors
+        return popt, perr, chi_sq, red_chi_sq
+
+
+# M/L AS FREE PARAMETER, FEEDS TO fithaloML
 def fitMLlsq(r, V):
-        vfit = V[0][1:] # skip r=0
+        vfit = V[0][1:]  # skip r=0
         rfit = r.reindex(vfit.index)
         vfit_err = V[1].reindex(vfit.index)
-        #vfit_err = np.ones(len(vfit)) # uncomment to NOT weigh fit by errors
+        # vfit_err = np.ones(len(vfit))  # uncomment to NOT weigh fit by errors
         vgas = V[2].reindex(vfit.index)
         vdisk = V[3].reindex(vfit.index)
         vbulge = V[4].reindex(vfit.index)
@@ -130,6 +134,7 @@ def fitMLlsq(r, V):
                 popt[3] = 0.
         ML = (popt[2], popt[3])
         return popt, perr, chi_sq, red_chi_sq, ML
+
 
 def MLrange(r, V, dML, bML):
         # add +/- 0.1 to M/L, if within limits 0.3 <= M/L <= 0.8
@@ -157,7 +162,7 @@ def MLrange(r, V, dML, bML):
         popt_high, perr_high, chi_sq_high, red_chi_sq_high = fithalo_lsq(
                 rfit_high, vfit_high, vfit_err_high)
         Vhalo_high = halo(r, popt_high[0], popt_high[1])
-        Vhalo_high[0] = 0. # replace first row NaN with 0
+        Vhalo_high[0] = 0.  # replace first row NaN with 0
         Vtot_high = np.sqrt((Vbary_high**2.) + (Vhalo_high**2.))
         # lower limit M/L
         vfit_low = np.sqrt((V[0]**2.) - (Vbary_low**2.)).dropna()[1:]
@@ -167,7 +172,7 @@ def MLrange(r, V, dML, bML):
         popt_low, perr_low, chi_sq_low, red_chi_sq_low = fithalo_lsq(
                 rfit_low, vfit_low, vfit_err_low)
         Vhalo_low = halo(r, popt_low[0], popt_low[1])
-        Vhalo_low[0] = 0. # replace first row NaN with 0
+        Vhalo_low[0] = 0.  # replace first row NaN with 0
         Vtot_low = np.sqrt((Vbary_low**2.) + (Vhalo_low**2.))
 
         Vdisk_range = (Vdisk_high, Vdisk_low)
@@ -177,6 +182,7 @@ def MLrange(r, V, dML, bML):
         Vtot_range = (Vtot_high, Vtot_low)
 
         return Vdisk_range, Vbulge_range, Vbary_range, Vhalo_range, Vtot_range
+
 
 def MLprompt(Vdisk, Vbulge):
         # ran into issues with floating point precision
@@ -210,13 +216,17 @@ def MLprompt(Vdisk, Vbulge):
                         bML = float(raw_input('Enter bulge M/L: '))
                 return (dML, bML)
 
+
 def find_nearest(radii, xvalue):
         return (np.abs(radii - xvalue)).argmin()
+
 
 ''' This class turns the plot into something the user can interact
     with. It needs the figure object in addition to all interactive
     text and plot (Line2D in this case) objects. It also uses the
     working data frame and M/L's. '''
+
+
 class InteractivePlot:
         def __init__(self, fig, txt, rc, df, ML):
                 self.fig = fig
@@ -264,7 +274,7 @@ class InteractivePlot:
                         'key_press_event', self.on_press)
                 self.cidkey_release = self.fig.canvas.mpl_connect(
                         'key_release_event', self.on_key_release)
-                
+
         def disconnect(self):
                 self.fig.canvas.mpl_disconnect(self.cidclick)
                 self.fig.canvas.mpl_disconnect(self.cidpick)
@@ -321,7 +331,7 @@ class InteractivePlot:
                 self.halo.set_data(xfine, halo(xfine, self.V_H, self.R_C))
                 self.halo.figure.canvas.draw()
                 self.Vhalo = halo(self.r, self.V_H, self.R_C)
-                self.Vhalo[0] = 0 # replace first row NaN with 0
+                self.Vhalo[0] = 0   # replace first row NaN with 0
                 self.RCtxt = plt.figtext(
                         0.65, 0.85, 'R$_\mathrm{C}$ = %.1f kpc'
                         % self.R_C, fontsize=38)
@@ -336,10 +346,9 @@ class InteractivePlot:
         def change_halo_fit(self):
                 xfine = np.linspace(self.r.min(), self.r.max())
                 self.halo.set_data(xfine, halo(xfine, self.V_H, self.R_C))
-                self.Vhalo[0] = 0 # replace first row NaN with 0
                 self.halo.figure.canvas.draw()
                 self.Vhalo = halo(self.r, self.V_H, self.R_C)
-                self.Vhalo[0] = 0 # replace first row NaN with 0
+                self.Vhalo[0] = 0  # replace first row NaN with 0
                 self.RCtxt = plt.figtext(
                         0.65, 0.85, 'R$_\mathrm{C}$ = %.1f $\pm$ %.1f kpc'
                         % (self.R_C, self.R_C_err), fontsize=38)
@@ -416,26 +425,31 @@ class InteractivePlot:
                         if 0. <= self.dML <= 10.:
                                 pass
                         else:
-                                print 'WARNING: 0 <= M/L <= 10 necessary for halo fitting!'
+                                print ('WARNING: 0 <= M/L <= 10 necessary',
+                                       'for halo fitting!')
                                 return
                 elif all(self.Vdisk == 0.):
                         if 0. <= self.bML <= 10.:
                                 pass
                         else:
-                                print 'WARNING: 0 <= M/L <= 10 necessary for halo fitting!'
+                                print ('WARNING: 0 <= M/L <= 10 necessary',
+                                       'for halo fitting!')
                                 return
                 else:
                         if 0. <= self.dML <= 10. and 0. <= self.bML <= 10.:
                                 pass
                         else:
-                                print 'WARNING: 0 <= M/L <= 10 necessary for halo fitting!'
+                                print ('WARNING: 0 <= M/L <= 10 necessary',
+                                       'for halo fitting!')
                                 return
                 vels = (self.Vrot, self.Verr, self.Vgas,
                         self.Vdisk, self.Vbulge)
                 if event.key == 'e':
                         # get upper/lower limits from +/- 0.1 range in M/L
-                        Vdisk_range, Vbulge_range, Vbary_range, Vhalo_range, Vtot_range = MLrange(self.r, vels, self.dML, self.bML)
-                        if self.toggle_on == False:
+                        Vdisk_range, Vbulge_range, Vbary_range, \
+                                Vhalo_range, Vtot_range = MLrange(
+                                        self.r, vels, self.dML, self.bML)
+                        if self.toggle_on is False:
                                 self.toggle_on = True
                                 self.disk_bands = plt.fill_between(
                                         self.r, Vdisk_range[0],
@@ -459,18 +473,20 @@ class InteractivePlot:
                                 self.bary_bands.remove()
                                 self.halo_bands.remove()
                                 self.total_bands.remove()
-                                self.toggle_on = False                        
+                                self.toggle_on = False
                 elif event.key == 'h':
                         self.remove_halo_text()
                         self.fit_halo()
                         self.change_total()
                 elif event.key == 'n':
                         self.fig.canvas.mpl_disconnect(self.cidclick)
-                        print 'Now entering label mode. Mouse-click scaling disabled.'
+                        print ('Now entering label mode.',
+                               'Mouse-click scaling disabled.')
                 elif event.key == 'm':
                         self.cidclick = self.fig.canvas.mpl_connect(
                                 'button_press_event', self.on_click)
-                        print 'Returning to interactive mode. Mouse-click scaling enabled.'
+                        print ('Returning to interactive mode.',
+                               'Mouse-click scaling enabled.')
                 elif event.key == 'u' or event.key == 'up':
                         if self.picked is not None:
                                 self.picked.set_va('bottom')
@@ -502,7 +518,8 @@ class InteractivePlot:
                                 self.fig.canvas.draw()
                         else:
                                 return
-                else: return
+                else:
+                        return
 
         def on_pick(self, event):
                 if isinstance(event.artist, Text):
@@ -560,8 +577,9 @@ class InteractivePlot:
                         self.remove_halo_text()
                         self.change_halo()
                         self.change_total()
-                        
-##### THE PLOTTING FUNCTION #####
+
+
+# THE PLOTTING FUNCTION
 def draw_plot(meta, df, popt, perr, ML):
         gal, dMpc, VHIrad, h_R, D25 = meta
 
@@ -569,8 +587,8 @@ def draw_plot(meta, df, popt, perr, ML):
         Rbary = df.RAD[df['V_bary'].idxmax()]
         Rdyn = 2.2 * ((h_R / 206.265) * dMpc)
         R25 = ((D25 / 2.) / 206.265) * dMpc
-                
-        fig = plt.figure(figsize=(25,15), dpi=30)
+
+        fig = plt.figure(figsize=(25, 15), dpi=30)
         ax1 = fig.add_subplot(111)
         ax1.xaxis.set_minor_locator(AutoMinorLocator(5))
         ax1.yaxis.set_minor_locator(AutoMinorLocator(5))
@@ -590,9 +608,9 @@ def draw_plot(meta, df, popt, perr, ML):
         ax2.set_xlabel('Radius (kpc)')
         ax2.set_xlim(0, df.RAD.max() * 1.15)
         ax2.set_ylim(0, df.VROT.max() * 1.6)
-        plt.figtext(0.1, 1, gal, fontsize=48, va='top') # galaxy title
+        plt.figtext(0.1, 1, gal, fontsize=48, va='top')  # galaxy title
         plt.figtext(0.15, 0.85, 'D = %.1f Mpc' % dMpc, fontsize=38)
-        #plt.figtext(0.15, 0.8, 'max. disk', fontsize=38)
+        # plt.figtext(0.15, 0.8, 'max. disk', fontsize=38)
         RCtxt = plt.figtext(0.65, 0.85, 'R$_\mathrm{C}$ = %.1f $\pm$ %.1f kpc'
                             % (popt[1], perr[1]), fontsize=38)
         VHtxt = plt.figtext(
@@ -669,7 +687,7 @@ def draw_plot(meta, df, popt, perr, ML):
                                    fontsize=38, ha='center', va='center',
                                    picker=True)
                 bMLtxt = plt.figtext(0.4, 0.8, 'bulge M/L = %.1f'
-                                             % ML[1], fontsize=38)
+                                     % ML[1], fontsize=38)
                 bulgeRC = plt.plot(df.RAD, df.V_bulge, 'c-', ls='-.',
                                    lw=5, dashes=[20, 20, 5, 20])
                 bulgelab = plt.text(xlab, df.V_bulge[last], 'Bulge',
@@ -697,13 +715,14 @@ def draw_plot(meta, df, popt, perr, ML):
 
         return fig, txt, rcs
 
+
 def main():
         # start by reading in the file
         if len(sys.argv) == 1:
                 print 'Correct usage: "$ python fithalo.py path/filename.rot"'
                 sys.exit(1)
         fname = sys.argv[1]
-        if os.path.exists(fname) == False:
+        if os.path.exists(fname) is False:
                 print 'ERROR: File %s does not exist.' % fname
                 sys.exit(1)
         with open(fname, 'r') as f:
@@ -712,10 +731,10 @@ def main():
                 diskmag = float(mline[0])
                 bulgemag = float(mline[1])
                 dMpc = float(f.readline().strip())
-                VHIrad = float(f.readline().strip()) # new addition to files
+                VHIrad = float(f.readline().strip())  # new addition to files
                 rline = f.readline().split()
-                h_R = float(rline[0]) # new addition to files
-                D25 = float(rline[1]) # new addition to files
+                h_R = float(rline[0])  # new addition to files
+                D25 = float(rline[1])  # new addition to files
 
         # create data frame for rotation curves
         rcdf = pd.read_table(fname, skiprows=5, delim_whitespace=True)
@@ -723,7 +742,7 @@ def main():
         meta = (galaxyName, dMpc, VHIrad, h_R, D25)
 
         # un-changing values
-        rcdf['V_gas'] = rcdf.V_GAS * np.sqrt(1.4) # scale by 1.4 for He
+        rcdf['V_gas'] = rcdf.V_GAS * np.sqrt(1.4)  # scale by 1.4 for He
         Ldisk = 10**(0.4 * (absmag_sun - diskmag
                             + 5 * np.log10((dMpc * 10**6.) / 10.)))
         Lbulge = 10**(0.4 * (absmag_sun - bulgemag
@@ -736,24 +755,24 @@ def main():
         vels = (rcdf.VROT, rcdf.V_ERR, rcdf.V_gas,
                 rcdf.VdiskML1, rcdf.VbulgeML1)
         popt, perr, chi_sq, red_chi_sq, ML = fitMLlsq(rcdf.RAD, vels)
-        
+
         # add columns based on fit parameters
         rcdf['V_disk'] = rcdf.VdiskML1 * np.sqrt(ML[0])
         rcdf['V_bulge'] = rcdf.VbulgeML1 * np.sqrt(ML[1])
         rcdf['V_bary'] = np.sqrt((rcdf.V_gas**2.)
                                  + (rcdf.V_disk**2.) + (rcdf.V_bulge**2.))
         rcdf['V_halo'] = halo(rcdf.RAD, popt[0], popt[1])
-        rcdf.set_value(0, 'V_halo', 0) # replace first row NaN with 0
+        rcdf.set_value(0, 'V_halo', 0)  # replace first row NaN with 0
         rcdf['V_tot'] = np.sqrt((rcdf.V_bary**2.) + (rcdf.V_halo**2.))
-        
+
         fig, txt, rcs = draw_plot(meta, rcdf, popt, perr, ML)
-        
+
         ip = InteractivePlot(fig, txt, rcs, rcdf, ML)
         ip.connect()
 
-        plt.show(block = False)
+        plt.show(block=False)
 
-        #print '\n ==========================================\n'
+        # print '\n ==========================================\n'
         print ' \nWelcome! Please select an option for %s from the menu:\n' % (
                 galaxyName)
         print ' Plot options (use when plot window is active):'
@@ -776,20 +795,20 @@ def main():
         print ' -----------------------------'
         print ' Fit options:'
         print '  f:                   provide fixed M/L and re-fit halo'
-        print '  r:                   re-fit halo & M/L using non-linear' 
+        print '  r:                   re-fit halo & M/L using non-linear'
         print '                       least-squares method'
         print ' Save options:'
         print '  p:                   save figure to file'
-        print '  s:                   write rotation curves and fit' 
+        print '  s:                   write rotation curves and fit'
         print '                       parameters to text file'
         print '  q:                   quit\n'
         print ' *Middle-mouse-click alternative: "shift + left-mouse-click"\n'
         print ' **Select label text by clicking on it. Be sure to enter'
         print '   label mode first by pressing "n".\n'
-        print ' NOTE: You may have to click on the figure after pressing' 
+        print ' NOTE: You may have to click on the figure after pressing'
         print '       "e" to toggle off the error bands. This is a known'
         print '       issue for some operating systems (Linux).\n'
-                
+
         print ' ==========================================\n'
         print ' Initial fit parameters for %s:\n' % galaxyName
         print ' Disk M/L =            %.1f' % ML[0]
@@ -814,28 +833,31 @@ def main():
                         rcdf.V_disk = rcdf.VdiskML1 * np.sqrt(ML[0])
                         rcdf.V_bulge = rcdf.VbulgeML1 * np.sqrt(ML[1])
                         vels = (rcdf.VROT, rcdf.V_ERR, rcdf.V_gas,
-                                    rcdf.V_disk, rcdf.V_bulge)
+                                rcdf.V_disk, rcdf.V_bulge)
                         popt, perr, chi_sq, red_chi_sq = fixedML(
                                 rcdf.RAD, vels)
                         print '\n ==========================================\n'
                         print ' Current fit parameters for %s:\n' % galaxyName
                         print ' Disk M/L =            %.1f' % ML[0]
                         print ' Bulge M/L =           %.1f' % ML[1]
-                        print ' V_H =                 %0.f +/- %0.f km/s' % (popt[0], perr[0])
-                        print ' R_C =                 %.2f +/- %.2f kpc' % (popt[1], perr[1])
+                        print ' V_H =                 %0.f +/- %0.f km/s' % (
+                                popt[0], perr[0])
+                        print ' R_C =                 %.2f +/- %.2f kpc' % (
+                                popt[1], perr[1])
                         print ' chi squared =         %.3f' % chi_sq
                         print ' reduced chi squared = %.3f\n' % red_chi_sq
                         rcdf['V_bary'] = np.sqrt(
                                 (rcdf.V_gas**2.) + (rcdf.V_disk**2.)
                                 + (rcdf.V_bulge**2.))
                         rcdf['V_halo'] = halo(rcdf.RAD, popt[0], popt[1])
-                        rcdf.set_value(0, 'V_halo', 0) # replace 1st NaN with 0
+                        # replace 1st NaN with 0
+                        rcdf.set_value(0, 'V_halo', 0)
                         rcdf['V_tot'] = np.sqrt((rcdf.V_bary**2.)
                                                 + (rcdf.V_halo**2.))
                         fig, txt, rcs = draw_plot(meta, rcdf, popt, perr, ML)
                         ip = InteractivePlot(fig, txt, rcs, rcdf, ML)
                         ip.connect()
-                        plt.show(block = False)
+                        plt.show(block=False)
                         choice = raw_input()
 
                 elif choice == 'r':
@@ -849,8 +871,10 @@ def main():
                         print ' Current fit parameters for %s:\n' % galaxyName
                         print ' Disk M/L =            %.1f' % ML[0]
                         print ' Bulge M/L =           %.1f' % ML[1]
-                        print ' V_H =                 %0.f +/- %0.f km/s' % (popt[0], perr[0])
-                        print ' R_C =                 %.2f +/- %.2f kpc' % (popt[1], perr[1])
+                        print ' V_H =                 %0.f +/- %0.f km/s' % (
+                                popt[0], perr[0])
+                        print ' R_C =                 %.2f +/- %.2f kpc' % (
+                                popt[1], perr[1])
                         print ' chi squared =         %.3f' % chi_sq
                         print ' reduced chi squared = %.3f\n' % red_chi_sq
                         rcdf['V_disk'] = rcdf.VdiskML1 * np.sqrt(ML[0])
@@ -859,13 +883,14 @@ def main():
                                 (rcdf.V_gas**2.) + (rcdf.V_disk**2.)
                                 + (rcdf.V_bulge**2.))
                         rcdf['V_halo'] = halo(rcdf.RAD, popt[0], popt[1])
-                        rcdf.set_value(0, 'V_halo', 0) # replace 1st NaN with 0
+                        # replace 1st NaN with 0
+                        rcdf.set_value(0, 'V_halo', 0)
                         rcdf['V_tot'] = np.sqrt((rcdf.V_bary**2.)
                                                 + (rcdf.V_halo**2.))
                         fig, txt, rcs = draw_plot(meta, rcdf, popt, perr, ML)
                         ip = InteractivePlot(fig, txt, rcs, rcdf, ML)
                         ip.connect()
-                        plt.show(block = False)
+                        plt.show(block=False)
                         choice = raw_input()
 
                 elif choice == 'p':
@@ -877,7 +902,8 @@ def main():
                                 VH, VHerr, RC, RCerr = ip.get_current_halo()
                                 chi, redchi = ip.get_current_chi()
                         else:
-                                VH, VHerr, RC, RCerr = popt[0], perr[0], popt[1], perr[1]
+                                VH, VHerr, RC, RCerr = popt[0], perr[0], \
+                                                       popt[1], perr[1]
                                 chi, redchi = chi_sq, red_chi_sq
                         dML, bML = ip.get_current_ML()
                         wdf = ip.get_current_df()
@@ -888,12 +914,19 @@ def main():
                                 wf.write(galaxyName + '\n')
                                 wf.write('Disk M/L = %.1f, Bulge M/L = %.1f\n'
                                          % (dML, bML))
-                                wf.write('R_C = %.1f +/- %.2f kpc, V_H = %0.f +/- %0.f km/s\n' % (RC, RCerr, VH, VHerr))
-                                wf.write('chi squared = %.3f, reduced chi squared = %.3f\n' % (chi, redchi))
+                                wf.write('R_C = %.1f +/- %.2f kpc\n'
+                                         % (RC, RCerr))
+                                wf.write('V_H = %0.f +/- %0.f km/s\n'
+                                         % (VH, VHerr))
+                                wf.write('chi squared = %.3f\n' % chi)
+                                wf.write('reduced chi squared = %.3f\n'
+                                         % redchi)
                                 wdf.to_csv(wf, sep='\t', float_format='%.2f',
                                            index=False, columns=cols)
                         choice = raw_input()
-                else: return
-               
+                else:
+                        return
+
+
 if __name__ == '__main__':
         main()
