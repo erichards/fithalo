@@ -24,7 +24,7 @@ velocities as a function of radius are described by the functional form:
 ```python
 def halo(r, *p):
         V_H, R_C = p
-	return V_H*np.sqrt(1-((R_C/r)*(np.arctan(r/R_C))))
+	return V_H * np.sqrt(1 - ((R_C / r) * (np.arctan(r / R_C))))
 ```
 
 where V_H and R_C are free parameters to be solved for during
