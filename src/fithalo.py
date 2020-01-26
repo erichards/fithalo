@@ -33,6 +33,7 @@ import matplotlib.pyplot as plt
 from draw_plot import draw_plot
 from halo import halo, do_fit, do_fixed_ml_fit
 from interactive_plot import InteractivePlot
+from menus import print_menu, print_fit_results
 
 logger = logging.getLogger('fithalo.src.fithalo')
 
@@ -110,54 +111,6 @@ def initialize_data(rcdf, params):
     return rcdf, halo_fit_params
 
 
-def print_menu(galaxy_name):
-    print(f'\n Welcome! Please select an option for {galaxy_name} from the menu:\n')
-    print(' Plot options (use when plot window is active):')
-    print('-'*30)
-    print('  left-mouse-click:    adjust disk M/L')
-    print('  middle-mouse-click:  adjust bulge M/L*')
-    print('  right-mouse-click:   adjust halo fit parameters R_C & V_H')
-    print('  e:                   toggle +/- 0.1 M/L error bands on/off')
-    print('  h:                   re-fit halo using current M/L')
-    print('  m:                   mouse-click scaling enabled')
-    print('                       (default, interactive mode)')
-    print('  n:                   no mouse-click scaling')
-    print('                       (label mode activated)')
-    print('  c:                   center selected label**')
-    print('  d or down arrow:     shift selected label down**')
-    print('  l or left arrow:     shift selected label to the left**')
-    print('  r or right arrow:    shift selected label to the right**')
-    print('  u or up arrow:       shift selected label up**\n')
-    print(' Command line options')
-    print('-'*30)
-    print(' Fit options:')
-    print('  f:                   provide fixed M/L and re-fit halo')
-    print('  r:                   re-fit halo & M/L using non-linear')
-    print('                       least-squares method')
-    print(' Save options:')
-    print('  p:                   save figure to file')
-    print('  s:                   write rotation curves and fit')
-    print('                       parameters to text file')
-    print('  q:                   quit\n')
-    print(' *Middle-mouse-click alternative: "shift + left-mouse-click"\n')
-    print(' **Select label text by clicking on it. Be sure to enter')
-    print('   label mode first by pressing "n".\n')
-    print(' NOTE: You may have to click on the figure after pressing')
-    print('       "e" to toggle off the error bands. This is a known')
-    print('       issue for some operating systems (Linux).\n')
-
-
-def print_fit_results(halo_fit_params):
-    print('=' * 40)
-    print(f'\n Current halo fit parameters:\n')
-    print(f" Disk M/L =            {halo_fit_params['d_ml']:.1f}")
-    print(f" Bulge M/L =           {halo_fit_params['b_ml']:.1f}")
-    print(f" V_H =                 {halo_fit_params['v_h']:.0f} +/- {halo_fit_params['v_h_err']:.0f} km/s")
-    print(f" R_C =                 {halo_fit_params['r_c']:.2f} +/- {halo_fit_params['r_c_err']:.2f} kpc")
-    print(f" chi squared =         {halo_fit_params['chi_sq']:.3f}")
-    print(f" reduced chi squared = {halo_fit_params['red_chi_sq']:.3f}\n")
-
-
 def write_results(ip, halo_fit_params, galaxy_name):
     if hasattr(ip, 'v_h'):
         v_h, v_h_err, r_c, r_c_err = ip.get_current_halo()
@@ -168,16 +121,18 @@ def write_results(ip, halo_fit_params, galaxy_name):
         chi, redchi = halo_fit_params['chi_sq'], halo_fit_params['red_chi_sq']
     d_ml, b_ml = ip.get_current_ml()
     wdf = ip.write_df()
-    cols = ['Rad', 'V_Rot', 'V_err', 'V_gas', 'V_disk', 'V_bulge', 'V_bary', 'V_halo', 'V_tot']
+    # TODO: column names in df are different
+    # cols = ['Rad', 'V_Rot', 'V_err', 'V_gas', 'V_disk', 'V_bulge', 'V_bary', 'V_halo', 'V_tot']
     txtfile = input('Enter text file name: ')
     with open(txtfile, 'w') as wf:
         wf.write(galaxy_name + '\n')
         wf.write(f'Disk M/L = {d_ml:.1f}, Bulge M/L = {b_ml:.1f}\n')
         wf.write(f'R_C = {r_c:.1f} +/- {r_c_err:.2f} kpc\n')
-        wf.write(f'V_H = {v_h:0.f} +/- {v_h_err:0.f} km/s\n')
+        wf.write(f'V_H = {v_h:.0f} +/- {v_h_err:.0f} km/s\n')
         wf.write(f'chi squared = {chi:.3f}\n')
         wf.write(f'reduced chi squared = {redchi:.3f}\n')
-        wdf.to_csv(wf, sep='\t', float_format='%.2f', index=False, columns=cols)
+        # TODO: look into better way of writing out results
+        wdf.to_csv(wf, sep='\t', float_format='%.2f', index=False)
 
 
 def handle_choice(choice, ip, rcdf, galaxy_params, halo_fit_params):
@@ -203,8 +158,8 @@ def handle_choice(choice, ip, rcdf, galaxy_params, halo_fit_params):
             # update rotation curves (minus stellar ones which were calculated above)
             rcdf = calculate_rotation_curves(rcdf, halo_fit_params)
             # update plot
-            fig, rc_plots, labels = draw_plot(galaxy_params, rcdf, halo_fit_params)
-            ip = InteractivePlot(fig, rc_plots, labels, rcdf, halo_fit_params)
+            fig, rc_plots = draw_plot(rcdf, galaxy_params, halo_fit_params)
+            ip = InteractivePlot(fig, rc_plots, rcdf, halo_fit_params)
             plt.show(block=False)
             choice = input()
         elif choice == 'r': # fit halo & M/L
@@ -217,8 +172,8 @@ def handle_choice(choice, ip, rcdf, galaxy_params, halo_fit_params):
             # update rotation curves
             rcdf = calculate_rotation_curves(rcdf, halo_fit_params)
             # update plot
-            fig, rc_plots, labels, = draw_plot(galaxy_params, rcdf, halo_fit_params)
-            ip = InteractivePlot(fig, rc_plots, labels, rcdf, halo_fit_params)
+            fig, rc_plots = draw_plot(rcdf, galaxy_params, halo_fit_params)
+            ip = InteractivePlot(fig, rc_plots, rcdf, halo_fit_params)
             plt.show(block=False)
             choice = input()
         elif choice == 'p':
@@ -248,8 +203,8 @@ def main():
         # do an initial fit with free M/L & record resulting RCs in data frame
         rcdf, halo_fit_params = initialize_data(rcdf, galaxy_params)
         # plot initial fit
-        fig, rc_plots, labels = draw_plot(rcdf, galaxy_params, halo_fit_params)
-        ip = InteractivePlot(fig, rc_plots, labels, rcdf, halo_fit_params)
+        fig, rc_plots = draw_plot(rcdf, galaxy_params, halo_fit_params)
+        ip = InteractivePlot(fig, rc_plots, rcdf, halo_fit_params)
         plt.show(block=False)
         print_menu(galaxy_params['galaxy_name'])
         print_fit_results(halo_fit_params)

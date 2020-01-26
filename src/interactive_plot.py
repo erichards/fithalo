@@ -3,30 +3,23 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from matplotlib.text import Text
 import logging
+
+from menus import print_fit_results
 from halo import halo, do_fixed_ml_fit, fit_dm_halo_fixed_ml
 
 logger = logging.getLogger('fithalo.src.interactive_plot')
 
 
 class InteractivePlot(object):
-    def __init__(self, fig, rc_plots, labels, df, halo_fit_params):
+    def __init__(self, fig, rc_plots, df, halo_fit_params):
         self.fig = fig
-        self.labels = {}
-        label_names = ['gas', 'disk', 'bulge', 'bary', 'halo', 'total', 'r_c', 'v_h', 'rb', 'rh', 'r25']
-        for i, label_name in enumerate(label_names):
-            self.labels[label_name] = labels[i]
-        self.rc_plots = {}
-        rc_names = ['disk', 'bulge', 'bary', 'halo', 'total']
-        for i, rc_name in enumerate(rc_names):
-            self.rc_plots[rc_name] = rc_plots[i]
+        self.rc_plots = rc_plots
         self.r = df.RAD
         self.vels = {
-            'obs': df.VROT, 'obs_err': df.V_ERR, 'gas': df.V_gas_scaled, 'disk': df.V_disk_fit, 'bulge': df.V_bulge_fit,
-            'bary': df.V_bary_fit, 'halo': df.V_halo_fit, 'total': df.V_tot_fit}
+            'obs': df.VROT, 'obs_err': df.V_ERR, 'gas': df.V_gas_scaled, 'disk': df.V_disk_fit,
+            'bulge': df.V_bulge_fit, 'bary': df.V_bary_fit, 'halo': df.V_halo_fit, 'total': df.V_tot_fit}
         self.d_ml = halo_fit_params['d_ml']
         self.b_ml = halo_fit_params['b_ml']
-        self.d_ml_txt = None
-        self.b_ml_txt = None
         self.r_c = halo_fit_params['r_c']
         self.r_c_err = halo_fit_params['r_c_err']
         self.v_h = halo_fit_params['v_h']
@@ -56,16 +49,16 @@ class InteractivePlot(object):
     def update_rc_label(self, component):
         last = len(self.r) - 1
         x_label_pos = self.r.max() * 1.08
-        self.labels[component].remove()
-        self.labels[component] = plt.text(
+        self.rc_plots[component]['label'].remove()
+        self.rc_plots[component]['label'] = plt.text(
             x_label_pos, self.vels[component][last], component, fontsize=38, ha='center', va='center', picker=True)
 
     def update_rc_plot(self, component, r=None):
-        if not r:
+        if r is None:
             r = self.r
-        self.rc_plots[component].set_data(r, self.vels[component])
+        self.rc_plots[component]['plot'].set_data(r, self.vels[component])
         self.update_rc_label(component)
-        self.rc_plots[component].figure.canvas.draw()
+        self.rc_plots[component]['plot'].figure.canvas.draw()
 
     def change_bary(self):
         self.vels['bary'] = np.sqrt((self.vels['gas'] ** 2.) + (self.vels['disk'] ** 2.) + (self.vels['bulge'] ** 2.))
@@ -76,26 +69,35 @@ class InteractivePlot(object):
         self.update_rc_plot('total')
 
     def change_disk(self):
-        self.d_ml_txt = plt.figtext(0.4, 0.85, 'disk M/L = %.1f' % self.d_ml, fontsize=38)
+        self.rc_plots['disk']['text']['d_ml'].remove()
+        self.rc_plots['disk']['text']['d_ml'] = plt.figtext(0.4, 0.85, 'disk M/L = %.1f' % self.d_ml, fontsize=38)
         self.update_rc_plot('disk')
         self.fig.canvas.draw()
 
     def change_bulge(self):
+        self.rc_plots['bulge']['text']['b_ml'].remove()
         if all(self.vels['disk'] == 0.):
-            self.b_ml_txt = plt.figtext(0.4, 0.85, 'bulge M/L = %.1f' % self.b_ml, fontsize=38)
+            self.rc_plots['bulge']['text']['b_ml'] = plt.figtext(0.4, 0.85, 'bulge M/L = %.1f' % self.b_ml, fontsize=38)
         else:
-            self.b_ml_txt = plt.figtext(0.4, 0.8, 'bulge M/L = %.1f' % self.b_ml, fontsize=38)
+            self.rc_plots['bulge']['text']['b_ml'] = plt.figtext(0.4, 0.8, 'bulge M/L = %.1f' % self.b_ml, fontsize=38)
         self.update_rc_plot('bulge')
         self.fig.canvas.draw()
 
     def change_halo(self):
-        self.labels['r_c'] = plt.figtext(0.65, 0.85, 'R$_\mathrm{C}$ = %.1f kpc' % self.r_c, fontsize=38)
-        self.labels['v_h'] = plt.figtext(0.65, 0.8, 'V$_\mathrm{H}$ = %0.f km s$^{-1}$' % self.v_h, fontsize=38)
+        self.rc_plots['halo']['text']['r_c'].remove()
+        self.rc_plots['halo']['text']['v_h'].remove()
+        self.rc_plots['halo']['text']['r_c'] = plt.figtext(
+            0.65, 0.85, 'R$_\mathrm{C}$ = %.1f kpc' % self.r_c, fontsize=38)
+        self.rc_plots['halo']['text']['v_h'] = plt.figtext(
+            0.65, 0.8, 'V$_\mathrm{H}$ = %0.f km s$^{-1}$' % self.v_h, fontsize=38)
         r_high_res = np.linspace(self.r.min(), self.r.max())
         self.vels['halo'] = halo(r_high_res, self.v_h, self.r_c)
         self.vels['halo'][0] = 0  # replace first row NaN with 0
         self.update_rc_plot('halo', r=r_high_res)
         self.fig.canvas.draw()
+        # reset halo rotation curve to use original radii
+        self.vels['halo'] = halo(self.r, self.v_h, self.r_c)
+        self.vels['halo'][0] = 0  # replace first row NaN with 0
 
     def fit_halo(self):
         vels = [self.vels['obs'], self.vels['obs_err'], self.vels['gas'], self.vels['disk'], self.vels['bulge']]
@@ -108,24 +110,14 @@ class InteractivePlot(object):
             self.chi_sq = halo_fit_params['chi_sq']
             self.red_chi_sq = halo_fit_params['red_chi_sq']
             self.change_halo()
+            halo_fit_params['d_ml'] = self.d_ml
+            halo_fit_params['b_ml'] = self.b_ml
+            print_fit_results(halo_fit_params)
         else:
-            self.labels['v_h'] = plt.figtext(0, 0, '')
-            self.labels['r_c'] = plt.figtext(0, 0, '')
-            self.labels['halo'] = plt.text(0, 0, '')
+            self.rc_plots['halo']['text']['r_c'] = plt.figtext(0, 0, '')
+            self.rc_plots['halo']['text']['v_h'] = plt.figtext(0, 0, '')
+            self.rc_plots['halo']['label'] = plt.text(0, 0, '')
             return
-
-    def remove_disk_text(self):
-        self.d_ml_txt.remove()
-        self.labels['disk'].remove()
-
-    def remove_bulge_text(self):
-        self.b_ml_txt.remove()
-        self.labels['bulge'].remove()
-
-    def remove_halo_text(self):
-        self.labels['v_h'].remove()
-        self.labels['r_c'].remove()
-        self.labels['halo'].remove()
 
     def get_current_halo(self):
         if hasattr(self, 'v_h_err'):
@@ -146,6 +138,7 @@ class InteractivePlot(object):
         d = {'Rad': self.r}
         d.update(self.vels)
         df = pd.DataFrame(d)
+        print(df.head())
         return df
 
     def on_press(self, event):
@@ -174,7 +167,6 @@ class InteractivePlot(object):
                 self.total_bands.remove()
                 self.toggle_on = False
         elif event.key == 'h':
-            self.remove_halo_text()
             self.fit_halo()
             self.change_total()
         elif event.key == 'n':
@@ -227,7 +219,7 @@ class InteractivePlot(object):
             self.shift_is_held = False
 
     def on_click(self, event):
-        if event.inaxes != self.rc_plots['disk'].axes:
+        if event.inaxes != self.rc_plots['disk']['plot'].axes:
             return
         idx = find_nearest(self.r, event.xdata)
         if event.button == 1:
@@ -237,7 +229,6 @@ class InteractivePlot(object):
                 scale = event.ydata / self.vels['bulge'][idx]
                 self.vels['bulge'] = scale * self.vels['bulge']
                 self.b_ml = (scale ** 2.) * self.b_ml
-                self.remove_bulge_text()
                 self.change_bulge()
                 self.change_bary()
                 self.change_total()
@@ -247,7 +238,6 @@ class InteractivePlot(object):
                 scale = event.ydata / self.vels['disk'][idx]
                 self.vels['disk'] = scale * self.vels['disk']
                 self.d_ml = (scale ** 2.) * self.d_ml
-                self.remove_disk_text()
                 self.change_disk()
                 self.change_bary()
                 self.change_total()
@@ -257,14 +247,12 @@ class InteractivePlot(object):
             scale = event.ydata / self.vels['bulge'][idx]
             self.vels['bulge'] = scale * self.vels['bulge']
             self.b_ml = (scale ** 2.) * self.b_ml
-            self.remove_bulge_text()
             self.change_bulge()
             self.change_bary()
             self.change_total()
         else:
             self.r_c = event.xdata
             self.v_h = event.ydata
-            self.remove_halo_text()
             self.change_halo()
             self.change_total()
 
@@ -285,7 +273,9 @@ def fit_halo_to_resid(r, v, vbary):
     vfit = np.sqrt((v['obs'] ** 2.) - (vbary ** 2.)).dropna()[1:]
     rfit = r.reindex(vfit.index)
     vfit_err = ((v['obs'] * v['obs_err']) / np.sqrt((v['obs'] ** 2.) - (vbary ** 2.))).reindex(vfit.index)
-    halo_fit_params = fit_dm_halo_fixed_ml(rfit, vfit, vfit_err)
+    popt, perr, chi_sq, red_chi_sq = fit_dm_halo_fixed_ml(rfit, vfit, vfit_err)
+    halo_fit_params = {'v_h': popt[0], 'v_h_err': perr[0], 'r_c': popt[1], 'r_c_err': perr[1],
+                       'chi_sq': chi_sq, 'red_chi_sq': red_chi_sq}
     vhalo = halo(r, halo_fit_params['v_h'], halo_fit_params['r_c'])
     vhalo[0] = 0.  # replace first row NaN with 0
     vtot = np.sqrt((vbary**2.) + (vhalo**2.))
@@ -311,4 +301,4 @@ def ml_range(r, v, d_ml, b_ml):
 
 
 def find_nearest(radii, xvalue):
-    return (np.abs(radii - xvalue)).argmin()
+    return (np.abs(radii - xvalue)).idxmin()

@@ -51,9 +51,9 @@ def draw_observed(df, v_hi_rad):
 
 
 def draw_gas(df, x_label_pos, last):
-    plt.plot(df.RAD, df.V_gas_scaled, 'g-', ls='--', lw=5, dashes=(20, 20))
-    gas_label = plt.text(x_label_pos, df.V_gas_scaled[last], 'Gas', fontsize=38, ha='center', va='center', picker=True)
-    return gas_label
+    gas_rc = plt.plot(df.RAD, df.V_gas_scaled, 'g-', ls='--', lw=5, dashes=(20, 20))
+    gas_label = plt.text(x_label_pos, df.V_gas_scaled[last], 'gas', fontsize=38, ha='center', va='center', picker=True)
+    return gas_rc, gas_label
 
 
 def draw_stellar_disk(df, x_label_pos, last, d_ml):
@@ -65,7 +65,7 @@ def draw_stellar_disk(df, x_label_pos, last, d_ml):
         d_ml_txt = plt.figtext(0.4, 0.85, 'disk M/L = %.1f' % d_ml, fontsize=38)
         disk_rc = plt.plot(df.RAD, df.V_disk_fit, 'm-', ls=':', lw=5, dashes=(5, 15))
         disk_label = plt.text(
-            x_label_pos, df.V_disk_fit[last], 'Disk', fontsize=38, ha='center', va='center', picker=True)
+            x_label_pos, df.V_disk_fit[last], 'disk', fontsize=38, ha='center', va='center', picker=True)
     return disk_rc, disk_label, d_ml_txt
 
 
@@ -75,36 +75,44 @@ def draw_stellar_bulge(df, x_label_pos, last, b_ml):
         bulge_rc = plt.plot(df.RAD, df.V_bulge_fit, '', ls='')
         bulge_label = plt.text(0., 0., '')
     else:
-        b_ml_txt = plt.figtext(0.4, 0.85, 'bulge M/L = %.1f' % b_ml, fontsize=38)
+        if all(df.V_disk_fit == 0.):
+            b_ml_txt = plt.figtext(0.4, 0.85, 'bulge M/L = %.1f' % b_ml, fontsize=38)
+        else:
+            b_ml_txt = plt.figtext(0.4, 0.8, 'bulge M/L = %.1f' % b_ml, fontsize=38)
         bulge_rc = plt.plot(df.RAD, df.V_bulge_fit, 'c-', ls='-.', lw=5, dashes=[20, 20, 5, 20])
         bulge_label = plt.text(
-            x_label_pos, df.V_bulge_fit[last], 'Bulge', fontsize=38, ha='center', va='center', picker=True)
+            x_label_pos, df.V_bulge_fit[last], 'bulge', fontsize=38, ha='center', va='center', picker=True)
     return bulge_rc, bulge_label, b_ml_txt
 
 
 def draw_baryons(df, x_label_pos, last):
     bary_rc = plt.plot(df.RAD, df.V_bary_fit, 'b-', ls='--', lw=5, dashes=[20, 10, 20, 10, 5, 10])
     bary_label = plt.text(
-        x_label_pos, df.V_bary_fit[last], 'Bary', fontsize=38, ha='center', va='center', picker=True)
+        x_label_pos, df.V_bary_fit[last], 'bary', fontsize=38, ha='center', va='center', picker=True)
     return bary_rc, bary_label
 
 
-def draw_halo(df, v_h, r_c, x_label_pos, last):
+def draw_halo(df, x_label_pos, last, halo_fit_params):
+    r_c_txt = plt.figtext(0.65, 0.85, 'R$_\mathrm{C}$ = %.1f $\pm$ %.1f kpc'
+                          % (halo_fit_params['r_c'], halo_fit_params['r_c_err']), fontsize=38)
+    v_h_txt = plt.figtext(0.65, 0.8, 'V$_\mathrm{H}$ = %0.f $\pm$ %0.f km s$^{-1}$'
+                          % (halo_fit_params['v_h'], halo_fit_params['v_h_err']), fontsize=38)
     r_high_res = np.linspace(df.RAD.min(), df.RAD.max())
-    halo_rc = plt.plot(r_high_res, halo(r_high_res, v_h, r_c), 'r-', lw=5)
+    halo_rc = plt.plot(r_high_res, halo(r_high_res, halo_fit_params['v_h'], halo_fit_params['r_c']), 'r-', lw=5)
     halo_label = plt.text(
-        x_label_pos, df.V_halo_fit[last], 'Halo', fontsize=38, ha='center', va='center', picker=True)
-    return halo_rc, halo_label
+        x_label_pos, df.V_halo_fit[last], 'halo', fontsize=38, ha='center', va='center', picker=True)
+    return halo_rc, halo_label, r_c_txt, v_h_txt
 
 
 def draw_total(df, x_label_pos, last):
     total_rc = plt.plot(df.RAD, df.V_tot_fit, 'k-', ls='-', lw=5)
     total_label = plt.text(
-        x_label_pos, df.V_tot_fit[last], 'Total', fontsize=38, ha='center', va='center', picker=True)
+        x_label_pos, df.V_tot_fit[last], 'total', fontsize=38, ha='center', va='center', picker=True)
     return total_rc, total_label
 
 
 def plot_rotation_curves(df, v_hi_rad, halo_fit_params):
+    rc_plots = {}
     # observed RC
     draw_observed(df, v_hi_rad)
 
@@ -112,20 +120,24 @@ def plot_rotation_curves(df, v_hi_rad, halo_fit_params):
     x_label_pos = df.RAD.max() * 1.08
 
     # model gas RC
-    gas_label = draw_gas(df, x_label_pos, last)
+    gas_rc, gas_label = draw_gas(df, x_label_pos, last)
+    rc_plots['gas'] = {'plot': gas_rc[0], 'label': gas_label, 'text': None}
     # model stellar disk & bulge RC
     disk_rc, disk_label, d_ml_txt = draw_stellar_disk(df, x_label_pos, last, halo_fit_params['d_ml'])
+    rc_plots['disk'] = {'plot': disk_rc[0], 'label': disk_label, 'text': {'d_ml': d_ml_txt}}
     bulge_rc, bulge_label, b_ml_txt = draw_stellar_bulge(df, x_label_pos, last, halo_fit_params['b_ml'])
+    rc_plots['bulge'] = {'plot': bulge_rc[0], 'label': bulge_label, 'text': {'b_ml': b_ml_txt}}
     # model total baryon RC
     bary_rc, bary_label = draw_baryons(df, x_label_pos, last)
+    rc_plots['bary'] = {'plot': bary_rc[0], 'label': bary_label, 'text': None}
     # model DM halo RC
-    halo_rc, halo_label = draw_halo(df, halo_fit_params['v_h'], halo_fit_params['r_c'], x_label_pos, last)
+    halo_rc, halo_label, r_c_txt, v_h_txt = draw_halo(df, x_label_pos, last, halo_fit_params)
+    rc_plots['halo'] = {'plot': halo_rc[0], 'label': halo_label, 'text': {'r_c': r_c_txt, 'v_h': v_h_txt}}
     # best fitting total
     total_rc, total_label = draw_total(df, x_label_pos, last)
+    rc_plots['total'] = {'plot': total_rc[0], 'label': total_label, 'text': None}
 
-    rc_plots = [disk_rc[0], bulge_rc[0], bary_rc[0], halo_rc[0], total_rc[0]]
-    labels = [gas_label, disk_label, bulge_label, bary_label, halo_label, total_label]
-    return rc_plots, labels
+    return rc_plots
 
 
 def draw_plot(df, galaxy_params, halo_fit_params):
@@ -140,18 +152,15 @@ def draw_plot(df, galaxy_params, halo_fit_params):
     plt.figtext(0.1, 1, galaxy_params['galaxy_name'], fontsize=48, va='top')  # galaxy title
     plt.figtext(0.15, 0.85, 'D = {0:.1f} Mpc'.format(galaxy_params['d_mpc']), fontsize=38)
     # plt.figtext(0.15, 0.8, 'max. disk', fontsize=38)
-    r_c_txt = plt.figtext(0.65, 0.85, 'R$_\mathrm{C}$ = %.1f $\pm$ %.1f kpc'
-                          % (halo_fit_params['r_c'], halo_fit_params['r_c_err']), fontsize=38)
-    v_h_txt = plt.figtext(0.65, 0.8, 'V$_\mathrm{H}$ = %0.f $\pm$ %0.f km s$^{-1}$'
-                          % (halo_fit_params['v_h'], halo_fit_params['v_h_err']), fontsize=38)
 
-    # mark radii
-    arrow_height = (df.VROT.max() * 1.4) * 0.095
+    # calculate radii
     rbary = df.RAD[df['V_bary_fit'].idxmax()]
-    rb_txt = annotate('R$_\mathrm{bary}$', rbary, arrow_height)
     rdyn = 2.2 * ((galaxy_params['h_r'] / 206.265) * galaxy_params['d_mpc'])
-    rh_txt = annotate('2.2h$_\mathrm{R}$', rdyn, arrow_height)
     r25 = ((galaxy_params['d25'] / 2.) / 206.265) * galaxy_params['d_mpc']
+    # add arrows to plot to mark radii
+    arrow_height = (df.VROT.max() * 1.4) * 0.095
+    rdyn_txt = annotate('2.2h$_\mathrm{R}$', rdyn, arrow_height)
+    rbary_txt = annotate('R$_\mathrm{bary}$', rbary, arrow_height)
     if r25 < df.RAD.max() * 1.15:
         r25_txt = annotate('R$_{25}$', r25, arrow_height)
     else:
@@ -160,7 +169,7 @@ def draw_plot(df, galaxy_params, halo_fit_params):
     # plot the observed rotation curve using radii in arcseconds
     ax1.plot(arcrad, df.VROT, 'ok', marker='None', ls='None')
     # plot the rest of the rotation curves
-    rc_plots, labels = plot_rotation_curves(df, galaxy_params['v_hi_rad'], halo_fit_params)
-    labels.extend([r_c_txt, v_h_txt, rb_txt, rh_txt, r25_txt])
+    rc_plots = plot_rotation_curves(df, galaxy_params['v_hi_rad'], halo_fit_params)
+    rc_plots['radius_labels'] = {'rbary': rbary_txt, 'rdyn': rdyn_txt, 'r25': r25_txt}
 
-    return fig, rc_plots, labels
+    return fig, rc_plots
